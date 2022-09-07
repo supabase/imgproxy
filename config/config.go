@@ -115,7 +115,8 @@ var (
 	ETagEnabled bool
 	ETagBuster  string
 
-	BaseURL string
+	BaseURL         string
+	QueryStringOpts bool
 
 	WhitelistProcessingOpts []string
 	Presets                 []string
@@ -284,6 +285,7 @@ func Reset() {
 	ETagBuster = ""
 
 	BaseURL = ""
+	QueryStringOpts = false
 
 	WhitelistProcessingOpts = make([]string, 0)
 	Presets = make([]string, 0)
@@ -459,6 +461,7 @@ func Configure() error {
 	configurators.String(&ETagBuster, "IMGPROXY_ETAG_BUSTER")
 
 	configurators.String(&BaseURL, "IMGPROXY_BASE_URL")
+	configurators.Bool(&QueryStringOpts, "IMGPROXY_QUERY_OPTS")
 
 	configurators.StringSlice(&WhitelistProcessingOpts, "IMGPROXY_WHITELIST_PROCESSING_OPTS")
 	configurators.StringSlice(&Presets, "IMGPROXY_PRESETS")
