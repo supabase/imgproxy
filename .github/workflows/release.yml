@@ -2,30 +2,86 @@ name: Release
 
 on:
   push:
-    tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+*'
+    branches:
+      - master
+  workflow_dispatch:
 
 jobs:
   release:
+    runs-on: ubuntu-20.04
+    outputs:
+      published: ${{ steps.semantic.outputs.new_release_published }}
+      version: ${{ steps.semantic.outputs.new_release_version }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Semantic Release
+        id: semantic
+        uses: cycjimmy/semantic-release-action@v3
+        with:
+          semantic_version: 18
+          extra_plugins: |
+            @semantic-release/commit-analyzer
+            @semantic-release/release-notes-generator
+            @semantic-release/github
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish:
+    needs:
+      - release
+    if: needs.release.outputs.published == 'true'
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-      - name: Prepare notes
-        run: |
-          # Extract changelog entries between this and previous version headers
-          escaped_version=$(echo ${GITHUB_REF_NAME#v} | sed -e 's/[]\/$*.^[]/\\&/g')
-          awk "BEGIN{inrelease=0} /## \[${escaped_version}\]/{inrelease=1;next} /## \[[0-9]+\.[0-9]+\.[0-9]+.*\]/{inrelease=0;exit} {if (inrelease) print}" CHANGELOG.md \
-            > RELEASE_NOTES.txt
-
-          # Write PRERELEASE="true" env if tag name has any suffix after vMAJOR.MINOR.PATCH
-          if [[ ${GITHUB_REF_NAME} =~ ^v[0-9]+\.[0-9]+\.[0-9]+.+ ]]; then
-            echo 'PRERELEASE="true"' >> $GITHUB_ENV
-          else
-            echo 'PRERELEASE="false"' >> $GITHUB_ENV
-          fi
-      - name: Release
-        uses: softprops/action-gh-release@v1
+      - id: meta
+        uses: docker/metadata-action@v4
         with:
-          body_path: RELEASE_NOTES.txt
-          prerelease: ${{ fromJSON(env.PRERELEASE) }}
+          images: |
+            supabase/imgproxy
+            public.ecr.aws/t3w2s2c9/imgproxy
+            436098097459.dkr.ecr.us-east-1.amazonaws.com/imgproxy
+            646182064048.dkr.ecr.us-east-1.amazonaws.com/imgproxy
+          tags: |
+            type=raw,value=v${{ needs.release.outputs.version }}
+
+      - uses: docker/setup-qemu-action@v2
+        with:
+          platforms: amd64,arm64
+      - uses: docker/setup-buildx-action@v2
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Login to ECR
+        uses: docker/login-action@v2
+        with:
+          registry: public.ecr.aws
+          username: ${{ secrets.PROD_ACCESS_KEY_ID }}
+          password: ${{ secrets.PROD_SECRET_ACCESS_KEY }}
+
+      - name: Login to ECR account - staging
+        uses: docker/login-action@v2
+        with:
+          registry: 436098097459.dkr.ecr.us-east-1.amazonaws.com
+          username: ${{ secrets.DEV_ACCESS_KEY_ID }}
+          password: ${{ secrets.DEV_SECRET_ACCESS_KEY }}
+
+      - name: Login to ECR account - prod
+        uses: docker/login-action@v2
+        with:
+          registry: 646182064048.dkr.ecr.us-east-1.amazonaws.com
+          username: ${{ secrets.PROD_ACCESS_KEY_ID }}
+          password: ${{ secrets.PROD_SECRET_ACCESS_KEY }}
+
+      - uses: docker/build-push-action@v3
+        with:
+          push: true
+          context: .
+          file: ./docker/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

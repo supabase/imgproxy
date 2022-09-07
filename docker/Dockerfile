@@ -12,7 +12,6 @@ RUN docker/build.sh
 # Final image
 
 FROM debian:bullseye-slim
-LABEL maintainer="Sergey Alexandrovich <darthsim@gmail.com>"
 
 RUN apt-get update \
   && apt-get upgrade -y \
