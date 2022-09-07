@@ -949,7 +949,7 @@ func applyURLOptions(po *ProcessingOptions, options urlOptions) error {
 		if !isWhitelistedOption(opt) {
 			continue
 		}
-		
+
 		if err := applyURLOption(po, opt.Name, opt.Args); err != nil {
 			return err
 		}
@@ -1079,6 +1079,10 @@ func ParsePath(path string, headers http.Header) (*ProcessingOptions, string, er
 		return nil, "", ierrors.New(404, fmt.Sprintf("Invalid path: %s", path), "Invalid URL")
 	}
 
+	if queryStart := strings.IndexByte(path, '?'); queryStart >= 0 {
+		path = path[:queryStart]
+	}
+
 	parts := strings.Split(strings.TrimPrefix(path, "/"), "/")
 
 	var (
@@ -1098,4 +1102,12 @@ func ParsePath(path string, headers http.Header) (*ProcessingOptions, string, er
 	}
 
 	return po, imageURL, nil
+}
+
+func Parse(path string, header http.Header) (*ProcessingOptions, string, error) {
+	if config.QueryStringOpts {
+		return ParseQuery(path, header)
+	}
+
+	return ParsePath(path, header)
 }
