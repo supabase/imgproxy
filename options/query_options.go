@@ -2,10 +2,11 @@ package options
 
 import (
 	"fmt"
-	"github.com/imgproxy/imgproxy/v3/ierrors"
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/imgproxy/imgproxy/v3/ierrors"
 )
 
 func ParseQuery(path string, headers http.Header) (*ProcessingOptions, string, error) {
@@ -13,7 +14,7 @@ func ParseQuery(path string, headers http.Header) (*ProcessingOptions, string, e
 		return nil, "", ierrors.New(404, fmt.Sprintf("Invalid path: %s", path), "Invalid URL")
 	}
 
-	parsedUrl, err := url.ParseRequestURI(path)
+	parsedURL, err := url.ParseRequestURI(path)
 
 	if queryStart := strings.IndexByte(path, '?'); queryStart >= 0 {
 		path = path[:queryStart]
@@ -25,7 +26,7 @@ func ParseQuery(path string, headers http.Header) (*ProcessingOptions, string, e
 
 	parts := strings.Split(strings.TrimPrefix(path, "/"), "/")
 
-	return parseQueryOptions(parts, parsedUrl.Query(), headers)
+	return parseQueryOptions(parts, parsedURL.Query(), headers)
 }
 
 func parseQueryOptions(pathParts []string, ops url.Values, headers http.Header) (*ProcessingOptions, string, error) {

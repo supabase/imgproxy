@@ -4,7 +4,7 @@ import (
 	"compress/gzip"
 	"crypto/tls"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"net/http/cookiejar"
@@ -168,7 +168,7 @@ func requestImage(imageURL string, header http.Header, jar *cookiejar.Jar) (*htt
 	}
 
 	if res.StatusCode != 200 {
-		body, _ := ioutil.ReadAll(res.Body)
+		body, _ := io.ReadAll(res.Body)
 		res.Body.Close()
 
 		status := 404
