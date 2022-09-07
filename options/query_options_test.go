@@ -3,13 +3,14 @@ package options
 import (
 	"encoding/base64"
 	"fmt"
+	"net/http"
+	"net/url"
+	"testing"
+
 	"github.com/imgproxy/imgproxy/v3/config"
 	"github.com/imgproxy/imgproxy/v3/imagetype"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-	"net/http"
-	"net/url"
-	"testing"
 )
 
 type QueryProcessingOptionsTestSuite struct{ suite.Suite }
