@@ -1,0 +1,23 @@
+{
+  "name": "imgproxy",
+  "version": "1.0.2",
+  "description": "Supabase ImgProxy fork",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "example": "examples"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/supabase/imgproxy.git"
+  },
+  "author": "Storage Team",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/supabase/imgproxy/issues"
+  },
+  "homepage": "https://github.com/supabase/imgproxy#readme"
+}
