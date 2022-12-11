@@ -39,7 +39,7 @@ jobs:
         uses: docker/metadata-action@v4
         with:
           images: |
-            public.ecr.aws/supabase/storage-api
+            public.ecr.aws/supabase/imgproxy
             436098097459.dkr.ecr.us-east-1.amazonaws.com/imgproxy
             646182064048.dkr.ecr.us-east-1.amazonaws.com/imgproxy
           tags: |
