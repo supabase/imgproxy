@@ -32,6 +32,9 @@ jobs:
       - release
     if: needs.release.outputs.published == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v3
 
@@ -42,6 +45,7 @@ jobs:
             public.ecr.aws/supabase/imgproxy
             436098097459.dkr.ecr.us-east-1.amazonaws.com/imgproxy
             646182064048.dkr.ecr.us-east-1.amazonaws.com/imgproxy
+            ghcr.io/supabase/storage-api
           tags: |
             type=raw,value=v${{ needs.release.outputs.version }}
 
@@ -70,6 +74,13 @@ jobs:
           registry: 646182064048.dkr.ecr.us-east-1.amazonaws.com
           username: ${{ secrets.PROD_ACCESS_KEY_ID }}
           password: ${{ secrets.PROD_SECRET_ACCESS_KEY }}
+
+      - name: Login to GHCR
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: docker/build-push-action@v3
         with:
