@@ -45,7 +45,7 @@ jobs:
             public.ecr.aws/supabase/imgproxy
             436098097459.dkr.ecr.us-east-1.amazonaws.com/imgproxy
             646182064048.dkr.ecr.us-east-1.amazonaws.com/imgproxy
-            ghcr.io/supabase/storage-api
+            ghcr.io/supabase/imgproxy
           tags: |
             type=raw,value=v${{ needs.release.outputs.version }}
 
