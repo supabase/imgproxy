@@ -274,6 +274,9 @@ vips_icc_remove(VipsImage *in, VipsImage **out) {
   if (vips_copy(in, out, NULL)) return 1;
 
   vips_image_remove(*out, VIPS_META_ICC_NAME);
+  vips_image_remove(*out, "exif-ifd0-WhitePoint");
+  vips_image_remove(*out, "exif-ifd0-PrimaryChromaticities");
+  vips_image_remove(*out, "exif-ifd2-ColorSpace");
 
   return 0;
 }
@@ -597,13 +600,30 @@ vips_strip(VipsImage *in, VipsImage **out, int keep_exif_copyright) {
   for (int i = 0; fields[i] != NULL; i++) {
     gchar *name = fields[i];
 
-    if (strcmp(name, VIPS_META_ICC_NAME) == 0) continue;
-    if (strcmp(name, "palette-bit-depth") == 0) continue;
+    if (
+      (strcmp(name, VIPS_META_ICC_NAME) == 0) ||
+      (strcmp(name, "palette-bit-depth") == 0) ||
+      (strcmp(name, "width") == 0) ||
+      (strcmp(name, "height") == 0) ||
+      (strcmp(name, "bands") == 0) ||
+      (strcmp(name, "format") == 0) ||
+      (strcmp(name, "coding") == 0) ||
+      (strcmp(name, "interpretation") == 0) ||
+      (strcmp(name, "xoffset") == 0) ||
+      (strcmp(name, "yoffset") == 0) ||
+      (strcmp(name, "xres") == 0) ||
+      (strcmp(name, "yres") == 0) ||
+      (strcmp(name, "vips-loader") == 0) ||
+      (strcmp(name, "background") == 0) ||
+      (strcmp(name, "vips-sequential") == 0)
+    ) continue;
 
     if (keep_exif_copyright) {
-      if (strcmp(name, VIPS_META_EXIF_NAME) == 0) continue;
-      if (strcmp(name, "exif-ifd0-Copyright") == 0) continue;
-      if (strcmp(name, "exif-ifd0-Artist") == 0) continue;
+      if (
+        (strcmp(name, VIPS_META_EXIF_NAME) == 0) ||
+        (strcmp(name, "exif-ifd0-Copyright") == 0) ||
+        (strcmp(name, "exif-ifd0-Artist") == 0)
+      ) continue;
     }
 
     vips_image_remove(*out, name);
@@ -647,7 +667,7 @@ vips_pngsave_go(VipsImage *in, void **buf, size_t *len, int interlace, int quant
   if (!quantize)
     return vips_pngsave_buffer(
       in, buf, len,
-      "filter", VIPS_FOREIGN_PNG_FILTER_NONE,
+      "filter", VIPS_FOREIGN_PNG_FILTER_ALL,
       "interlace", interlace,
       NULL
     );

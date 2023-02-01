@@ -4,8 +4,7 @@ import (
 	"compress/gzip"
 	"crypto/tls"
 	"fmt"
-	"io/ioutil"
-	"net"
+	"io"
 	"net/http"
 	"net/http/cookiejar"
 	"time"
@@ -50,12 +49,16 @@ func (e *ErrorNotModified) Error() string {
 }
 
 func initDownloading() error {
-	transport := &http.Transport{
-		Proxy:               http.ProxyFromEnvironment,
-		MaxIdleConns:        config.Concurrency,
-		MaxIdleConnsPerHost: config.Concurrency,
-		DisableCompression:  true,
-		DialContext:         (&net.Dialer{KeepAlive: 600 * time.Second}).DialContext,
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DisableCompression = true
+
+	if config.ClientKeepAliveTimeout > 0 {
+		transport.MaxIdleConns = config.Concurrency
+		transport.MaxIdleConnsPerHost = config.Concurrency
+		transport.IdleConnTimeout = time.Duration(config.ClientKeepAliveTimeout) * time.Second
+	} else {
+		transport.MaxIdleConns = 0
+		transport.MaxIdleConnsPerHost = 0
 	}
 
 	if config.IgnoreSslVerification {
@@ -139,7 +142,7 @@ func BuildImageRequest(imageURL string, header http.Header, jar *cookiejar.Jar) 
 	if _, ok := enabledSchemes[req.URL.Scheme]; !ok {
 		return nil, ierrors.New(
 			404,
-			fmt.Sprintf("Unknown sheme: %s", req.URL.Scheme),
+			fmt.Sprintf("Unknown scheme: %s", req.URL.Scheme),
 			msgSourceImageIsUnreachable,
 		)
 	}
@@ -187,7 +190,7 @@ func requestImage(imageURL string, header http.Header, jar *cookiejar.Jar) (*htt
 	}
 
 	if res.StatusCode != 200 {
-		body, _ := ioutil.ReadAll(res.Body)
+		body, _ := io.ReadAll(res.Body)
 		res.Body.Close()
 
 		status := 404

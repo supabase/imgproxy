@@ -6,9 +6,9 @@ if (window.DOCSIFY_ROUTER_MODE === "history") {
 
 var documentTitleBase = document.title;
 
-var gitterURL = "https://gitter.im/imgproxy/imgproxy";
-var gitterBadgeURL = "https://img.shields.io/gitter/room/imgproxy/imgproxy" +
-  "?color=1775d3&style=for-the-badge&logo=gitter";
+var gitterURL = "https://discord.gg/5GgpXgtC9u";
+var gitterBadgeURL = "https://img.shields.io/badge/chat-on%20Discord-blue"
+  + "?logo=discord&logoColor=white&style=for-the-badge";
 var gitterBadge = '<div class="gitter">' +
   '<a class="gitter-link" href="' + gitterURL + '" target="_blank">' +
   '<img alt="Chat on Gitter" src="' + gitterBadgeURL + '">' +
@@ -43,7 +43,7 @@ window.$docsify = {
   repo: 'https://github.com/imgproxy',
   loadSidebar: true,
   relativePath: true,
-  subMaxLevel: 2,
+  subMaxLevel: 3,
   auto2top: true,
   routerMode: window.DOCSIFY_ROUTER_MODE || "hash",
   noEmoji: true,
