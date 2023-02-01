@@ -3,7 +3,6 @@ package processing
 import (
 	"math"
 
-	"github.com/imgproxy/imgproxy/v3/config"
 	"github.com/imgproxy/imgproxy/v3/imagedata"
 	"github.com/imgproxy/imgproxy/v3/imagetype"
 	"github.com/imgproxy/imgproxy/v3/imath"
@@ -46,15 +45,6 @@ func calcScale(width, height int, po *options.ProcessingOptions, imgtype imagety
 	var wshrink, hshrink float64
 
 	srcW, srcH := float64(width), float64(height)
-
-	if config.CropMaxWidth > 0 && srcW > float64(config.CropMaxWidth) {
-		po.Width = config.CropMaxWidth
-	}
-
-	if config.CropMaxHeight > 0 && srcH > float64(config.CropMaxHeight) {
-		po.Height = config.CropMaxHeight
-	}
-
 	dstW, dstH := float64(po.Width), float64(po.Height)
 
 	if po.Width == 0 {
