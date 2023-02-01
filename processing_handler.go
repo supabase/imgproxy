@@ -128,6 +128,8 @@ func respondWithImage(reqID string, r *http.Request, rw http.ResponseWriter, sta
 		rw.Header().Set("X-Result-Height", resultData.Headers["X-Result-Height"])
 	}
 
+	rw.Header().Set("Content-Security-Policy", "script-src 'none'")
+
 	rw.Header().Set("Content-Length", strconv.Itoa(len(resultData.Data)))
 	rw.WriteHeader(statusCode)
 	rw.Write(resultData.Data)
@@ -344,17 +346,14 @@ func handleProcessing(reqID string, rw http.ResponseWriter, r *http.Request) {
 		// Don't process SVG
 		if originData.Type == imagetype.SVG {
 			if config.SanitizeSvg {
-				sanitized, svgErr := svg.Satitize(originData.Data)
+				sanitized, svgErr := svg.Satitize(originData)
 				checkErr(ctx, "svg_processing", svgErr)
 
 				// Since we'll replace origin data, it's better to close it to return
 				// it's buffer to the pool
 				originData.Close()
 
-				originData = &imagedata.ImageData{
-					Data: sanitized,
-					Type: imagetype.SVG,
-				}
+				originData = sanitized
 			}
 
 			respondWithImage(reqID, r, rw, statusCode, originData, po, imageURL, originData)
@@ -384,6 +383,21 @@ func handleProcessing(reqID string, rw http.ResponseWriter, r *http.Request) {
 		sendErrAndPanic(ctx, "processing", ierrors.New(
 			422, "Resulting image format is not supported: svg", "Invalid URL",
 		))
+	}
+
+	// We're going to rasterize SVG. Since librsvg lacks the support of some SVG
+	// features, we're going to replace them to minimize rendering error
+	if originData.Type == imagetype.SVG && config.SvgFixUnsupported {
+		fixed, changed, svgErr := svg.FixUnsupported(originData)
+		checkErr(ctx, "svg_processing", svgErr)
+
+		if changed {
+			// Since we'll replace origin data, it's better to close it to return
+			// it's buffer to the pool
+			originData.Close()
+
+			originData = fixed
+		}
 	}
 
 	resultData, err := func() (*imagedata.ImageData, error) {

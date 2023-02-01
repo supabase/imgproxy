@@ -8,7 +8,6 @@ package vips
 import "C"
 import (
 	"errors"
-	"fmt"
 	"math"
 	"os"
 	"runtime"
@@ -21,6 +20,7 @@ import (
 	"github.com/imgproxy/imgproxy/v3/ierrors"
 	"github.com/imgproxy/imgproxy/v3/imagedata"
 	"github.com/imgproxy/imgproxy/v3/imagetype"
+	"github.com/imgproxy/imgproxy/v3/metrics/cloudwatch"
 	"github.com/imgproxy/imgproxy/v3/metrics/datadog"
 	"github.com/imgproxy/imgproxy/v3/metrics/newrelic"
 	"github.com/imgproxy/imgproxy/v3/metrics/otel"
@@ -52,7 +52,7 @@ func Init() error {
 
 	if err := C.vips_initialize(); err != 0 {
 		C.vips_shutdown()
-		return fmt.Errorf("unable to start vips!")
+		return errors.New("unable to start vips!")
 	}
 
 	// Disable libvips cache. Since processing pipeline is fine tuned, we won't get much profit from it.
@@ -124,6 +124,10 @@ func Init() error {
 		"By",
 		GetAllocs,
 	)
+
+	cloudwatch.AddGaugeFunc("VipsMemory", "Bytes", GetMem)
+	cloudwatch.AddGaugeFunc("VipsMaxMemory", "Bytes", GetMemHighwater)
+	cloudwatch.AddGaugeFunc("VipsAllocs", "Count", GetAllocs)
 
 	return nil
 }

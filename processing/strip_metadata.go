@@ -62,11 +62,21 @@ func stripXMP(img *vips.Image) []byte {
 		if n.Name() == "dc" {
 			filteredNodes := n.Nodes[:0]
 			for _, nn := range n.Nodes {
-				if nn.Name() == "rights" || nn.Name() == "contributor" || nn.Name() == "creator" || nn.Name() == "publisher" {
+				name := nn.Name()
+				if name == "rights" || name == "contributor" || name == "creator" || name == "publisher" {
 					filteredNodes = append(filteredNodes, nn)
 				}
 			}
 			n.Nodes = filteredNodes
+
+			filteredAttrs := n.Attr[:0]
+			for _, a := range n.Attr {
+				name := a.Name.Local
+				if name == "dc:rights" || name == "dc:contributor" || name == "dc:creator" || name == "dc:publisher" {
+					filteredAttrs = append(filteredAttrs, a)
+				}
+			}
+			n.Attr = filteredAttrs
 		}
 	}
 
@@ -82,29 +92,31 @@ func stripXMP(img *vips.Image) []byte {
 	return xmpData
 }
 
-func finalize(pctx *pipelineContext, img *vips.Image, po *options.ProcessingOptions, imgdata *imagedata.ImageData) error {
-	if po.StripMetadata {
-		var iptcData, xmpData []byte
+func stripMetadata(pctx *pipelineContext, img *vips.Image, po *options.ProcessingOptions, imgdata *imagedata.ImageData) error {
+	if !po.StripMetadata {
+		return nil
+	}
 
-		if po.KeepCopyright {
-			iptcData = stripIPTC(img)
-			xmpData = stripXMP(img)
+	var iptcData, xmpData []byte
+
+	if po.KeepCopyright {
+		iptcData = stripIPTC(img)
+		xmpData = stripXMP(img)
+	}
+
+	if err := img.Strip(po.KeepCopyright); err != nil {
+		return err
+	}
+
+	if po.KeepCopyright {
+		if len(iptcData) > 0 {
+			img.SetBlob("iptc-data", iptcData)
 		}
 
-		if err := img.Strip(po.KeepCopyright); err != nil {
-			return err
-		}
-
-		if po.KeepCopyright {
-			if len(iptcData) > 0 {
-				img.SetBlob("iptc-data", iptcData)
-			}
-
-			if len(xmpData) > 0 {
-				img.SetBlob("xmp-data", xmpData)
-			}
+		if len(xmpData) > 0 {
+			img.SetBlob("xmp-data", xmpData)
 		}
 	}
 
-	return img.CopyMemory()
+	return nil
 }

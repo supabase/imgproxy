@@ -35,7 +35,7 @@ var mainPipeline = pipeline{
 	flatten,
 	watermark,
 	exportColorProfile,
-	finalize,
+	stripMetadata,
 }
 
 func isImageTypePreferred(imgtype imagetype.Type) bool {
@@ -119,7 +119,7 @@ func transformAnimated(ctx context.Context, img *vips.Image, po *options.Process
 	framesCount := imath.Min(img.Height()/frameHeight, config.MaxAnimationFrames)
 
 	// Double check dimensions because animated image has many frames
-	if err = security.CheckDimensions(imgWidth, frameHeight*framesCount); err != nil {
+	if err = security.CheckDimensions(imgWidth, frameHeight, framesCount); err != nil {
 		return err
 	}
 
@@ -179,10 +179,6 @@ func transformAnimated(ctx context.Context, img *vips.Image, po *options.Process
 	}
 
 	if err = img.CastUchar(); err != nil {
-		return err
-	}
-
-	if err = img.CopyMemory(); err != nil {
 		return err
 	}
 
