@@ -39,8 +39,6 @@ var (
 	MaxAnimationFrames int
 	MaxSvgCheckBytes   int
 	MaxRedirects       int
-	CropMaxWidth       int
-	CropMaxHeight      int
 
 	JpegProgressive       bool
 	PngInterlaced         bool
@@ -384,9 +382,6 @@ func Configure() error {
 	configurators.Int(&MaxAnimationFrames, "IMGPROXY_MAX_ANIMATION_FRAMES")
 
 	configurators.Int(&MaxRedirects, "IMGPROXY_MAX_REDIRECTS")
-
-	configurators.Int(&CropMaxWidth, "IMGPROXY_CROP_MAX_WIDTH")
-	configurators.Int(&CropMaxHeight, "IMGPROXY_CROP_MAX_HEIGHT")
 
 	configurators.Patterns(&AllowedSources, "IMGPROXY_ALLOWED_SOURCES")
 
