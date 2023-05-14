@@ -42,6 +42,7 @@ var (
 	MaxAnimationFrameResolution int
 	MaxSvgCheckBytes            int
 	MaxRedirects                int
+	AllowSecurityOptions        bool
 
 	JpegProgressive       bool
 	PngInterlaced         bool
@@ -84,7 +85,10 @@ var (
 	IgnoreSslVerification bool
 	DevelopmentErrorsMode bool
 
-	AllowedSources []*regexp.Regexp
+	AllowedSources                []*regexp.Regexp
+	AllowLoopbackSourceAddresses  bool
+	AllowLinkLocalSourceAddresses bool
+	AllowPrivateSourceAddresses   bool
 
 	SanitizeSvg bool
 
@@ -93,9 +97,10 @@ var (
 
 	LocalFileSystemRoot string
 
-	S3Enabled  bool
-	S3Region   string
-	S3Endpoint string
+	S3Enabled       bool
+	S3Region        string
+	S3Endpoint      string
+	S3AssumeRoleArn string
 
 	GCSEnabled  bool
 	GCSKey      string
@@ -118,6 +123,8 @@ var (
 
 	ETagEnabled bool
 	ETagBuster  string
+
+	LastModifiedEnabled bool
 
 	BaseURL string
 
@@ -226,6 +233,7 @@ func Reset() {
 	MaxAnimationFrameResolution = 0
 	MaxSvgCheckBytes = 32 * 1024
 	MaxRedirects = 10
+	AllowSecurityOptions = false
 
 	JpegProgressive = false
 	PngInterlaced = false
@@ -273,6 +281,9 @@ func Reset() {
 	DevelopmentErrorsMode = false
 
 	AllowedSources = make([]*regexp.Regexp, 0)
+	AllowLoopbackSourceAddresses = false
+	AllowLinkLocalSourceAddresses = false
+	AllowPrivateSourceAddresses = true
 
 	SanitizeSvg = true
 
@@ -283,6 +294,7 @@ func Reset() {
 	S3Enabled = false
 	S3Region = ""
 	S3Endpoint = ""
+	S3AssumeRoleArn = ""
 	GCSEnabled = false
 	GCSKey = ""
 	ABSEnabled = false
@@ -301,6 +313,8 @@ func Reset() {
 
 	ETagEnabled = false
 	ETagBuster = ""
+
+	LastModifiedEnabled = false
 
 	BaseURL = ""
 
@@ -402,8 +416,13 @@ func Configure() error {
 	configurators.Int(&MaxRedirects, "IMGPROXY_MAX_REDIRECTS")
 
 	configurators.Patterns(&AllowedSources, "IMGPROXY_ALLOWED_SOURCES")
+	configurators.Bool(&AllowLoopbackSourceAddresses, "IMGPROXY_ALLOW_LOOPBACK_SOURCE_ADDRESSES")
+	configurators.Bool(&AllowLinkLocalSourceAddresses, "IMGPROXY_ALLOW_LINK_LOCAL_SOURCE_ADDRESSES")
+	configurators.Bool(&AllowPrivateSourceAddresses, "IMGPROXY_ALLOW_PRIVATE_SOURCE_ADDRESSES")
 
 	configurators.Bool(&SanitizeSvg, "IMGPROXY_SANITIZE_SVG")
+
+	configurators.Bool(&AllowSecurityOptions, "IMGPROXY_ALLOW_SECURITY_OPTIONS")
 
 	configurators.Bool(&JpegProgressive, "IMGPROXY_JPEG_PROGRESSIVE")
 	configurators.Bool(&PngInterlaced, "IMGPROXY_PNG_INTERLACED")
@@ -473,6 +492,7 @@ func Configure() error {
 	configurators.Bool(&S3Enabled, "IMGPROXY_USE_S3")
 	configurators.String(&S3Region, "IMGPROXY_S3_REGION")
 	configurators.String(&S3Endpoint, "IMGPROXY_S3_ENDPOINT")
+	configurators.String(&S3AssumeRoleArn, "IMGPROXY_S3_ASSUME_ROLE_ARN")
 
 	configurators.Bool(&GCSEnabled, "IMGPROXY_USE_GCS")
 	configurators.String(&GCSKey, "IMGPROXY_GCS_KEY")
@@ -494,6 +514,8 @@ func Configure() error {
 
 	configurators.Bool(&ETagEnabled, "IMGPROXY_USE_ETAG")
 	configurators.String(&ETagBuster, "IMGPROXY_ETAG_BUSTER")
+
+	configurators.Bool(&LastModifiedEnabled, "IMGPROXY_USE_LAST_MODIFIED")
 
 	configurators.String(&BaseURL, "IMGPROXY_BASE_URL")
 

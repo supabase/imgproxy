@@ -30,6 +30,7 @@ var mainPipeline = pipeline{
 	cropToResult,
 	applyFilters,
 	extend,
+	extendAspectRatio,
 	padding,
 	fixSize,
 	flatten,
@@ -116,10 +117,10 @@ func transformAnimated(ctx context.Context, img *vips.Image, po *options.Process
 		return err
 	}
 
-	framesCount := imath.Min(img.Height()/frameHeight, config.MaxAnimationFrames)
+	framesCount := imath.Min(img.Height()/frameHeight, po.SecurityOptions.MaxAnimationFrames)
 
 	// Double check dimensions because animated image has many frames
-	if err = security.CheckDimensions(imgWidth, frameHeight, framesCount); err != nil {
+	if err = security.CheckDimensions(imgWidth, frameHeight, framesCount, po.SecurityOptions); err != nil {
 		return err
 	}
 
@@ -173,7 +174,12 @@ func transformAnimated(ctx context.Context, img *vips.Image, po *options.Process
 	}
 
 	if watermarkEnabled && imagedata.Watermark != nil {
-		if err = applyWatermark(img, imagedata.Watermark, &po.Watermark, framesCount); err != nil {
+		dprScale, derr := img.GetDoubleDefault("imgproxy-dpr-scale", 1.0)
+		if derr != nil {
+			dprScale = 1.0
+		}
+
+		if err = applyWatermark(img, imagedata.Watermark, &po.Watermark, dprScale, framesCount); err != nil {
 			return err
 		}
 	}
@@ -203,9 +209,13 @@ func saveImageToFitBytes(ctx context.Context, po *options.ProcessingOptions, img
 	var diff float64
 	quality := po.GetQuality()
 
+	if err := img.CopyMemory(); err != nil {
+		return nil, err
+	}
+
 	for {
 		imgdata, err := img.Save(po.Format, quality)
-		if len(imgdata.Data) <= po.MaxBytes || quality <= 10 || err != nil {
+		if err != nil || len(imgdata.Data) <= po.MaxBytes || quality <= 10 {
 			return imgdata, err
 		}
 		imgdata.Close()
@@ -234,7 +244,7 @@ func ProcessImage(ctx context.Context, imgdata *imagedata.ImageData, po *options
 	defer vips.Cleanup()
 
 	animationSupport :=
-		config.MaxAnimationFrames > 1 &&
+		po.SecurityOptions.MaxAnimationFrames > 1 &&
 			imgdata.Type.SupportsAnimation() &&
 			(po.Format == imagetype.Unknown || po.Format.SupportsAnimation())
 

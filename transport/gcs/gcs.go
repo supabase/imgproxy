@@ -9,11 +9,16 @@ import (
 	"strings"
 
 	"cloud.google.com/go/storage"
+	"github.com/pkg/errors"
 	"google.golang.org/api/option"
+	raw "google.golang.org/api/storage/v1"
+	htransport "google.golang.org/api/transport/http"
 
 	"github.com/imgproxy/imgproxy/v3/config"
 	"github.com/imgproxy/imgproxy/v3/ctxreader"
 	"github.com/imgproxy/imgproxy/v3/httprange"
+	defaultTransport "github.com/imgproxy/imgproxy/v3/transport"
+	"github.com/imgproxy/imgproxy/v3/transport/notmodified"
 )
 
 // For tests
@@ -23,13 +28,27 @@ type transport struct {
 	client *storage.Client
 }
 
-func New() (http.RoundTripper, error) {
-	var (
-		client *storage.Client
-		err    error
-	)
+func buildHTTPClient(opts ...option.ClientOption) (*http.Client, error) {
+	trans, err := defaultTransport.New(false)
+	if err != nil {
+		return nil, err
+	}
 
-	opts := []option.ClientOption{}
+	htrans, err := htransport.NewTransport(context.Background(), trans, opts...)
+	if err != nil {
+		return nil, errors.Wrap(err, "error creating GCS transport")
+	}
+
+	return &http.Client{Transport: htrans}, nil
+}
+
+func New() (http.RoundTripper, error) {
+	var client *storage.Client
+
+	opts := []option.ClientOption{
+		option.WithScopes(raw.DevstorageReadOnlyScope),
+		option.WithUserAgent(config.UserAgent),
+	}
 
 	if len(config.GCSKey) > 0 {
 		opts = append(opts, option.WithCredentialsJSON([]byte(config.GCSKey)))
@@ -42,6 +61,12 @@ func New() (http.RoundTripper, error) {
 	if noAuth {
 		opts = append(opts, option.WithoutAuthentication())
 	}
+
+	httpClient, err := buildHTTPClient(opts...)
+	if err != nil {
+		return nil, err
+	}
+	opts = append(opts, option.WithHTTPClient(httpClient))
 
 	client, err = storage.NewClient(context.Background(), opts...)
 
@@ -98,26 +123,21 @@ func (t transport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	// We haven't initialize reader yet, this means that we need non-ranged reader
 	if reader == nil {
-		if config.ETagEnabled {
+		if config.ETagEnabled || config.LastModifiedEnabled {
 			attrs, err := obj.Attrs(req.Context())
 			if err != nil {
 				return handleError(req, err)
 			}
-			header.Set("ETag", attrs.Etag)
-
-			if etag := req.Header.Get("If-None-Match"); len(etag) > 0 && attrs.Etag == etag {
-				return &http.Response{
-					StatusCode:    http.StatusNotModified,
-					Proto:         "HTTP/1.0",
-					ProtoMajor:    1,
-					ProtoMinor:    0,
-					Header:        header,
-					ContentLength: 0,
-					Body:          nil,
-					Close:         false,
-					Request:       req,
-				}, nil
+			if config.ETagEnabled {
+				header.Set("ETag", attrs.Etag)
 			}
+			if config.LastModifiedEnabled {
+				header.Set("Last-Modified", attrs.Updated.Format(http.TimeFormat))
+			}
+		}
+
+		if resp := notmodified.Response(req, header); resp != nil {
+			return resp, nil
 		}
 
 		var err error

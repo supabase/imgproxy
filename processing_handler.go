@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"net/http/cookiejar"
 	"strconv"
 	"strings"
 	"time"
@@ -45,20 +44,26 @@ func initProcessingHandler() {
 
 	vary := make([]string, 0)
 
-	if config.EnableWebpDetection || config.EnforceWebp {
+	if config.EnableWebpDetection || config.EnforceWebp || config.EnableAvifDetection || config.EnforceAvif {
 		vary = append(vary, "Accept")
 	}
 
 	if config.EnableClientHints {
-		vary = append(vary, "DPR", "Viewport-Width", "Width")
+		vary = append(vary, "Sec-CH-DPR", "DPR", "Sec-CH-Width", "Width")
 	}
 
 	headerVaryValue = strings.Join(vary, ", ")
 }
 
-func setCacheControl(rw http.ResponseWriter, originHeaders map[string]string) {
+func setCacheControl(rw http.ResponseWriter, force *time.Time, originHeaders map[string]string) {
 	var cacheControl, expires string
 	var ttl int
+
+	if force != nil {
+		rw.Header().Set("Cache-Control", fmt.Sprintf("max-age=%d, public", int(time.Until(*force).Seconds())))
+		rw.Header().Set("Expires", force.Format(http.TimeFormat))
+		return
+	}
 
 	if config.CacheControlPassthrough && originHeaders != nil {
 		if val, ok := originHeaders["Cache-Control"]; ok && len(val) > 0 {
@@ -83,6 +88,14 @@ func setCacheControl(rw http.ResponseWriter, originHeaders map[string]string) {
 	}
 	if len(expires) > 0 {
 		rw.Header().Set("Expires", expires)
+	}
+}
+
+func setLastModified(rw http.ResponseWriter, originHeaders map[string]string) {
+	if config.LastModifiedEnabled {
+		if val, ok := originHeaders["Last-Modified"]; ok && len(val) != 0 {
+			rw.Header().Set("Last-Modified", val)
+		}
 	}
 }
 
@@ -112,11 +125,8 @@ func respondWithImage(reqID string, r *http.Request, rw http.ResponseWriter, sta
 	rw.Header().Set("Content-Type", resultData.Type.Mime())
 	rw.Header().Set("Content-Disposition", contentDisposition)
 
-	if po.Dpr != 1 {
-		rw.Header().Set("Content-DPR", strconv.FormatFloat(po.Dpr, 'f', 2, 32))
-	}
-
-	setCacheControl(rw, originData.Headers)
+	setCacheControl(rw, po.Expires, originData.Headers)
+	setLastModified(rw, originData.Headers)
 	setVary(rw)
 	setCanonical(rw, originURL)
 
@@ -144,7 +154,7 @@ func respondWithImage(reqID string, r *http.Request, rw http.ResponseWriter, sta
 }
 
 func respondWithNotModified(reqID string, r *http.Request, rw http.ResponseWriter, po *options.ProcessingOptions, originURL string, originHeaders map[string]string) {
-	setCacheControl(rw, originHeaders)
+	setCacheControl(rw, po.Expires, originHeaders)
 	setVary(rw)
 
 	rw.WriteHeader(304)
@@ -228,13 +238,8 @@ func handleProcessing(reqID string, rw http.ResponseWriter, r *http.Request) {
 	po, imageURL, err := options.ParsePath(path, r.Header)
 	checkErr(ctx, "path_parsing", err)
 
-	if !security.VerifySourceURL(imageURL) {
-		sendErrAndPanic(ctx, "security", ierrors.New(
-			404,
-			fmt.Sprintf("Source URL is not allowed: %s", imageURL),
-			"Invalid source",
-		))
-	}
+	err = security.VerifySourceURL(imageURL)
+	checkErr(ctx, "security", err)
 
 	if po.Raw {
 		streamOriginImage(ctx, reqID, r, rw, po, imageURL)
@@ -264,6 +269,12 @@ func handleProcessing(reqID string, rw http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if config.LastModifiedEnabled {
+		if modifiedSince := r.Header.Get("If-Modified-Since"); len(modifiedSince) != 0 {
+			imgRequestHeader.Set("If-Modified-Since", modifiedSince)
+		}
+	}
+
 	// The heavy part start here, so we need to restrict concurrency
 	var processingSemToken *semaphore.Token
 	func() {
@@ -288,20 +299,25 @@ func handleProcessing(reqID string, rw http.ResponseWriter, r *http.Request) {
 	originData, err := func() (*imagedata.ImageData, error) {
 		defer metrics.StartDownloadingSegment(ctx)()
 
-		var cookieJar *cookiejar.Jar
+		downloadOpts := imagedata.DownloadOptions{
+			Header:    imgRequestHeader,
+			CookieJar: nil,
+		}
 
 		if config.CookiePassthrough {
-			cookieJar, err = cookies.JarFromRequest(r)
+			downloadOpts.CookieJar, err = cookies.JarFromRequest(r)
 			checkErr(ctx, "download", err)
 		}
 
-		return imagedata.Download(imageURL, "source image", imgRequestHeader, cookieJar)
+		return imagedata.Download(ctx, imageURL, "source image", downloadOpts, po.SecurityOptions)
 	}()
 
 	if err == nil {
 		defer originData.Close()
-	} else if nmErr, ok := err.(*imagedata.ErrorNotModified); ok && config.ETagEnabled {
-		rw.Header().Set("ETag", etagHandler.GenerateExpectedETag())
+	} else if nmErr, ok := err.(*imagedata.ErrorNotModified); ok {
+		if config.ETagEnabled && len(etagHandler.ImageEtagExpected()) != 0 {
+			rw.Header().Set("ETag", etagHandler.GenerateExpectedETag())
+		}
 		respondWithNotModified(reqID, r, rw, po, imageURL, nmErr.Headers)
 		return
 	} else {
