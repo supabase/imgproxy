@@ -44,9 +44,12 @@ echo $(xxd -g 2 -l 64 -p /dev/random | tr -d '\n')
 * `IMGPROXY_USER_AGENT`: the User-Agent header that will be sent with the source image request. Default: `imgproxy/%current_version`
 * `IMGPROXY_USE_ETAG`: when set to `true`, enables using the [ETag](https://en.wikipedia.org/wiki/HTTP_ETag) HTTP header for HTTP cache control. Default: `false`
 * `IMGPROXY_ETAG_BUSTER`: change this to change ETags for all the images. Default: blank
+* `IMGPROXY_USE_LAST_MODIFIED`: when set to `true`, enables using the [Last-Modified](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Last-Modified) HTTP header for HTTP cache control. Default: `false`
 * `IMGPROXY_CUSTOM_REQUEST_HEADERS`: ![pro](./assets/pro.svg) list of custom headers that imgproxy will send while requesting the source image, divided by `\;` (can be redefined by `IMGPROXY_CUSTOM_HEADERS_SEPARATOR`). Example: `X-MyHeader1=Lorem\;X-MyHeader2=Ipsum`
 * `IMGPROXY_CUSTOM_RESPONSE_HEADERS`: ![pro](./assets/pro.svg) a list of custom response headers, separated by `\;` (can be redefined by `IMGPROXY_CUSTOM_HEADERS_SEPARATOR`). Example: `X-MyHeader1=Lorem\;X-MyHeader2=Ipsum`
 * `IMGPROXY_CUSTOM_HEADERS_SEPARATOR`: ![pro](./assets/pro.svg) a string that will be used as a custom header separator. Default: `\;`
+* `IMGPROXY_REQUEST_HEADERS_PASSTHROUGH`: ![pro](./assets/pro.svg) a list of names of incoming request headers that should be passed through to the source image request.
+* `IMGPROXY_RESPONSE_HEADERS_PASSTHROUGH`: ![pro](./assets/pro.svg) a list of names of source image response headers that should be passed through to the imgproxy response.
 * `IMGPROXY_ENABLE_DEBUG_HEADERS`: when set to `true`, imgproxy will add debug headers to the response. Default: `false`. The following headers will be added:
   * `X-Origin-Content-Length`: the size of the source image
   * `X-Origin-Width`: the width of the source image
@@ -61,7 +64,7 @@ imgproxy protects you from so-called image bombs. Here's how you can specify the
 
 * `IMGPROXY_MAX_SRC_RESOLUTION`: the maximum resolution of the source image, in megapixels. Images with larger actual size will be rejected. Default: `16.8`
 
-**⚠️Warning:** When the source image is animated, imgproxy summarizes all its frames' resolutions while checking the source image resolution unless `IMGPROXY_MAX_ANIMATION_FRAME_RESOLUTION` is greater than zero.
+  **⚠️ Warning:** When the source image is animated, imgproxy summarizes all its frames' resolutions while checking the source image resolution unless `IMGPROXY_MAX_ANIMATION_FRAME_RESOLUTION` is greater than zero.
 
 * `IMGPROXY_MAX_SRC_FILE_SIZE`: the maximum size of the source image, in bytes. Images with larger file size will be rejected. When set to `0`, file size check is disabled. Default: `0`
 
@@ -86,7 +89,7 @@ If you don't want to reveal your source URLs, you can encrypt them with the AES-
 
 * `IMGPROXY_SOURCE_URL_ENCRYPTION_KEY`: hex-encoded key used for source URL encryption. Default: blank
 
-**📝Note:** Read more about source URL encryption in the [encrypting the source URL guide](encrypting_the_source_url.md).
+  **📝 Note:** Read more about source URL encryption in the [encrypting the source URL guide](encrypting_the_source_url.md).
 
 imgproxy does not send CORS headers by default. CORS will need to be allowed by using the following variable:
 
@@ -96,20 +99,31 @@ You can limit allowed source URLs with the following variable:
 
 * `IMGPROXY_ALLOWED_SOURCES`: a whitelist of source image URL prefixes divided by comma. Wildcards can be included with `*` to match all characters except `/`. When blank, imgproxy allows all source image URLs. Example: `s3://,https://*.example.com/,local://`. Default: blank
 
-**⚠️Warning:** Be careful when using this config to limit source URL hosts, and always add a trailing slash after the host.
-* Bad: `http://example.com`
-* Good: `http://example.com/`
-If the trailing slash is absent, `http://example.com@baddomain.com` would be a permissable URL, however, the request would be made to `baddomain.com`.
+  **⚠️ Warning:** Be careful when using this config to limit source URL hosts, and always add a trailing slash after the host.
 
-* `IMGPROXY_SANITIZE_SVG`: when true, imgproxy will remove scripts from SVG images to prevent XSS attacks. Defaut: `true`
+  ❌ Bad: `http://example.com`
+
+  ✅ Good: `http://example.com/`
+
+  If the trailing slash is absent, `http://example.com@baddomain.com` would be a permissable URL, however, the request would be made to `baddomain.com`.
+
+* `IMGPROXY_ALLOW_LOOPBACK_SOURCE_ADDRESSES`: when `true`, allows connecting to loopback IP addresses (`127.0.0.1`-`127.255.255.255` and IPv6 analogues) when requesting source images. Default: `false`
+* `IMGPROXY_ALLOW_LINK_LOCAL_SOURCE_ADDRESSES`:  when `true`, allows connecting to link-local multicast and unicast IP addresses (`224.0.0.1`-`224.0.0.255`, `169.254.0.1`-`169.254.255.255`, and IPv6 analogues) when requesting source images. Default: `false`
+* `IMGPROXY_ALLOW_PRIVATE_SOURCE_ADDRESSES`: when `true`, allows connecting to private IP addresses (`10.0.0.0 - 10.255.255.255`, `172.16.0.0 - 172.31.255.255`, `192.168.0.0 - 192.168.255.255`, and IPv6 analogues) when requesting source images. Default: `true`
+
+* `IMGPROXY_SANITIZE_SVG`: when `true`, imgproxy will remove scripts from SVG images to prevent XSS attacks. Defaut: `true`
 
 When using imgproxy in a development environment, it can be useful to ignore SSL verification:
 
-* `IMGPROXY_IGNORE_SSL_VERIFICATION`: when true, disables SSL verification, so imgproxy can be used in a development environment with self-signed SSL certificates.
+* `IMGPROXY_IGNORE_SSL_VERIFICATION`: when `true`, disables SSL verification, so imgproxy can be used in a development environment with self-signed SSL certificates.
 
 Also you may want imgproxy to respond with the same error message that it writes to the log:
 
-* `IMGPROXY_DEVELOPMENT_ERRORS_MODE`: when true, imgproxy will respond with detailed error messages. Not recommended for production because some errors may contain stack traces.
+* `IMGPROXY_DEVELOPMENT_ERRORS_MODE`: when `true`, imgproxy will respond with detailed error messages. Not recommended for production because some errors may contain stack traces.
+
+* `IMGPROXY_ALLOW_SECURITY_OPTIONS`: when `true`, allows usage of security-related processing options such as `max_src_resolution`, `max_src_file_size`, `max_animation_frames`, and `max_animation_frame_resolution`. Default: `false`.
+
+  **⚠️ Warning:** `IMGPROXY_ALLOW_SECURITY_OPTIONS` allows bypassing your security restrictions. Don't set it to `true` unless you are completely sure that an attacker can't change your imgproxy URLs.
 
 ## Cookies
 
@@ -129,11 +143,11 @@ When cookie forwarding is activated, by default, imgproxy assumes the scope of t
 
 ### Advanced JPEG compression
 
-* `IMGPROXY_JPEG_PROGRESSIVE`: when true, enables progressive JPEG compression. Default: `false`
-* `IMGPROXY_JPEG_NO_SUBSAMPLE`: ![pro](./assets/pro.svg) when true, chrominance subsampling is disabled. This will improve quality at the cost of larger file size. Default: `false`
-* `IMGPROXY_JPEG_TRELLIS_QUANT`: ![pro](./assets/pro.svg) when true, enables trellis quantisation for each 8x8 block. Reduces file size but increases compression time. Default: `false`
-* `IMGPROXY_JPEG_OVERSHOOT_DERINGING`: ![pro](./assets/pro.svg) when true, enables overshooting of samples with extreme values. Overshooting may reduce ringing artifacts from compression, in particular in areas where black text appears on a white background. Default: `false`
-* `IMGPROXY_JPEG_OPTIMIZE_SCANS`: ![pro](./assets/pro.svg) when true, splits the spectrum of DCT coefficients into separate scans. Reduces file size but increases compression time. Requires `IMGPROXY_JPEG_PROGRESSIVE` to be true. Default: `false`
+* `IMGPROXY_JPEG_PROGRESSIVE`: when `true`, enables progressive JPEG compression. Default: `false`
+* `IMGPROXY_JPEG_NO_SUBSAMPLE`: ![pro](./assets/pro.svg) when `true`, chrominance subsampling is disabled. This will improve quality at the cost of larger file size. Default: `false`
+* `IMGPROXY_JPEG_TRELLIS_QUANT`: ![pro](./assets/pro.svg) when `true`, enables trellis quantisation for each 8x8 block. Reduces file size but increases compression time. Default: `false`
+* `IMGPROXY_JPEG_OVERSHOOT_DERINGING`: ![pro](./assets/pro.svg) when `true`, enables overshooting of samples with extreme values. Overshooting may reduce ringing artifacts from compression, in particular in areas where black text appears on a white background. Default: `false`
+* `IMGPROXY_JPEG_OPTIMIZE_SCANS`: ![pro](./assets/pro.svg) when `true`, splits the spectrum of DCT coefficients into separate scans. Reduces file size but increases compression time. Requires `IMGPROXY_JPEG_PROGRESSIVE` to be true. Default: `false`
 * `IMGPROXY_JPEG_QUANT_TABLE`: ![pro](./assets/pro.svg) quantization table to use. Supported values are:
   * `0`: Table from JPEG Annex K (default)
   * `1`: Flat table
@@ -147,8 +161,8 @@ When cookie forwarding is activated, by default, imgproxy assumes the scope of t
 
 ### Advanced PNG compression
 
-* `IMGPROXY_PNG_INTERLACED`: when true, enables interlaced PNG compression. Default: `false`
-* `IMGPROXY_PNG_QUANTIZE`: when true, enables PNG quantization. libvips should be built with [Quantizr](https://github.com/DarthSim/quantizr) or libimagequant support. Default: `false`
+* `IMGPROXY_PNG_INTERLACED`: when `true`, enables interlaced PNG compression. Default: `false`
+* `IMGPROXY_PNG_QUANTIZE`: when `true`, enables PNG quantization. libvips should be built with [Quantizr](https://github.com/DarthSim/quantizr) or libimagequant support. Default: `false`
 * `IMGPROXY_PNG_QUANTIZATION_COLORS`: maximum number of quantization palette entries. Should be between 2 and 256. Default: 256
 
 <!-- ### Advanced GIF compression
@@ -168,7 +182,7 @@ When cookie forwarding is activated, by default, imgproxy assumes the scope of t
 
 imgproxy can calculate the quality of the resulting image based on selected metric. Read more in the [Autoquality](autoquality.md) guide.
 
-**⚠️Warning:** Autoquality requires the image to be saved several times. Use it only when you prefer the resulting size and quality over the speed.
+**⚠️ Warning:** Autoquality requires the image to be saved several times. Use it only when you prefer the resulting size and quality over the speed.
 
 * `IMGPROXY_AUTOQUALITY_METHOD`: ![pro](./assets/pro.svg) the method of quality calculation. Default: `none`
 * `IMGPROXY_AUTOQUALITY_TARGET`: ![pro](./assets/pro.svg) desired value of the autoquality method metric. Default: 0.02
@@ -191,13 +205,13 @@ imgproxy can use the `Accept` HTTP header to detect if the browser supports AVIF
 * `IMGPROXY_ENABLE_AVIF_DETECTION`: enables AVIF support detection. When the file extension is omitted in the imgproxy URL and browser supports AVIF, imgproxy will use it as the resulting format.
 * `IMGPROXY_ENFORCE_AVIF`: enables AVIF support detection and enforces AVIF usage. If the browser supports AVIF, it will be used as resulting format even if another extension is specified in the imgproxy URL.
 
-**📝Note:** imgproxy prefers AVIF over WebP. This means that if both AVIF and WebP detection/enforcement are enabled and the browser supports both of them, AVIF will be used.
+**📝 Note:** imgproxy prefers AVIF over WebP. This means that if both AVIF and WebP detection/enforcement are enabled and the browser supports both of them, AVIF will be used.
 
-**📝Note:** If both the source and the requested image formats support animation and AVIF detection/enforcement is enabled, AVIF won't be used as AVIF sequence is not supported yet.
+**📝 Note:** If both the source and the requested image formats support animation and AVIF detection/enforcement is enabled, AVIF won't be used as AVIF sequence is not supported yet.
 
-**📝Note:** When AVIF/WebP support detection is enabled, please take care to configure your CDN or caching proxy to take the `Accept` HTTP header into account while caching.
+**📝 Note:** When AVIF/WebP support detection is enabled, please take care to configure your CDN or caching proxy to take the `Accept` HTTP header into account while caching.
 
-**⚠️Warning:** Headers cannot be signed. This means that an attacker can bypass your CDN cache by changing the `Accept` HTTP headers. Keep this in mind when configuring your production caching setup.
+**⚠️ Warning:** Headers cannot be signed. This means that an attacker can bypass your CDN cache by changing the `Accept` HTTP headers. Keep this in mind when configuring your production caching setup.
 
 ## Preferred formats
 
@@ -213,7 +227,7 @@ imgproxy is guided by the following rules when choosing the resulting format:
 4. imgproxy chooses the first preferred format that meets those requirements
 5. If none of the preferred formats meet the requirements, the first preferred format is used
 
-**📝Note:** When AVIF/WebP support detection is enabled and the browser supports AVIF/WebP, it may be used as the resultant format even if the preferred formats list doesn't contain it.
+**📝 Note:** When AVIF/WebP support detection is enabled and the browser supports AVIF/WebP, it may be used as the resultant format even if the preferred formats list doesn't contain it.
 
 ## Skip processing
 
@@ -221,39 +235,39 @@ You can configure imgproxy to skip processing of some formats:
 
 * `IMGPROXY_SKIP_PROCESSING_FORMATS`: a list of formats that imgproxy shouldn't process, comma divided.
 
-**📝Note:** Processing can only be skipped when the requested format is the same as the source format.
+**📝 Note:** Processing can only be skipped when the requested format is the same as the source format.
 
-**📝Note:** Video thumbnail processing can't be skipped.
+**📝 Note:** Video thumbnail processing can't be skipped.
 
 ## Best format
 
-You can use the `best` value for the [format](generating_the_url#format) option or the [extension](generating_the_url#extension) to make imgproxy pick the best format for the resultant image.
+You can use the `best` value for the [format](generating_the_url.md#format) option or the [extension](generating_the_url.md#extension) to make imgproxy pick the best format for the resultant image.
 
 * `IMGPROXY_BEST_FORMAT_COMPLEXITY_THRESHOLD `: ![pro](./assets/pro.svg) the image complexity threshold. imgproxy will use a lossless or near-lossless encoding for images with low complexity. Default: `5.5`
 * `IMGPROXY_BEST_FORMAT_MAX_RESOLUTION`: ![pro](./assets/pro.svg) when greater than `0` and the image's resolution (in megapixels) is larger than the provided value, imgproxy won't try all the applicable formats and will just pick one that seems the best for the image
 * `IMGPROXY_BEST_FORMAT_BY_DEFAULT`: ![pro](./assets/pro.svg) when `true` and the resulting image format is not specified explicitly, imgproxy will use the `best` format instead of the source image format
-* `IMGPROXY_BEST_FORMAT_ALLOW_SKIPS`: ![pro](./assets/pro.svg) when `true` and the `best` format is used, imgproxy will skip processing of SVG and formats [listed to skip processing](configuration#skip-processing)
+* `IMGPROXY_BEST_FORMAT_ALLOW_SKIPS`: ![pro](./assets/pro.svg) when `true` and the `best` format is used, imgproxy will skip processing of SVG and formats [listed to skip processing](configuration.md#skip-processing)
 
-Check out the [Best format](best_format) guide to learn more.
+Check out the [Best format](best_format.md) guide to learn more.
 
 ## Client Hints support
 
-imgproxy can use the `Width`, `Viewport-Width` or `DPR` HTTP headers to determine default width and DPR options using Client Hints. This feature is disabled by default and can be enabled by the following option:
+imgproxy can use the `Width` and `DPR` HTTP headers to determine default width and DPR options using Client Hints. This feature is disabled by default and can be enabled by the following option:
 
 * `IMGPROXY_ENABLE_CLIENT_HINTS`: enables Client Hints support to determine default width and DPR options. Read more details [here](https://developers.google.com/web/updates/2015/09/automating-resource-selection-with-client-hints) about Client Hints.
 
-**⚠️Warning:** Headers cannot be signed. This means that an attacker can bypass your CDN cache by changing the `Width`, `Viewport-Width` or `DPR` HTTP headers. Keep this in mind when configuring your production caching setup.
+**⚠️ Warning:** Headers cannot be signed. This means that an attacker can bypass your CDN cache by changing the `Width` or `DPR` HTTP headers. Keep this in mind when configuring your production caching setup.
 
 ## Video thumbnails
 
 imgproxy Pro can extract specific video frames to create thumbnails. This feature is disabled by default, but can be enabled with `IMGPROXY_ENABLE_VIDEO_THUMBNAILS`.
 
-* `IMGPROXY_ENABLE_VIDEO_THUMBNAILS`: ![pro](./assets/pro.svg) when true, enables video thumbnail generation. Default: `false`
+* `IMGPROXY_ENABLE_VIDEO_THUMBNAILS`: ![pro](./assets/pro.svg) when `true`, enables video thumbnail generation. Default: `false`
 * `IMGPROXY_VIDEO_THUMBNAIL_SECOND`: ![pro](./assets/pro.svg) the timestamp of the frame (in seconds) that will be used for a thumbnail. Default: 1
 * `IMGPROXY_VIDEO_THUMBNAIL_PROBE_SIZE`: ![pro](./assets/pro.svg) the maximum amount of bytes used to determine the format. Lower values can decrease memory usage but can produce inaccurate data, or even lead to errors. Default: 5000000
 * `IMGPROXY_VIDEO_THUMBNAIL_MAX_ANALYZE_DURATION`: ![pro](./assets/pro.svg) the maximum number of milliseconds used to get the stream info. Lower values can decrease memory usage but can produce inaccurate data, or even lead to errors. When set to 0, the heuristic is used. Default: 0
 
-**⚠️Warning:** Though using `IMGPROXY_VIDEO_THUMBNAIL_PROBE_SIZE` and `IMGPROXY_VIDEO_THUMBNAIL_MAX_ANALYZE_DURATION` can lower the memory footprint of video thumbnail generation, they should be used in production only when you know what you're doing.
+**⚠️ Warning:** Though using `IMGPROXY_VIDEO_THUMBNAIL_PROBE_SIZE` and `IMGPROXY_VIDEO_THUMBNAIL_MAX_ANALYZE_DURATION` can lower the memory footprint of video thumbnail generation, they should be used in production only when you know what you're doing.
 
 ## Watermark
 
@@ -275,6 +289,11 @@ imgproxy Pro can apply an unsharpening mask to your images.
   * `always`: always applies the unsharpening mask.
 * `IMGPROXY_UNSHARPENING_WEIGHT`: ![pro](./assets/pro.svg) a floating-point number that defines how neighboring pixels will affect the current pixel. The greater the value, the sharper the image. This value should be greater than zero. Default: `1`
 * `IMGPROXY_UNSHARPENING_DIVIDOR`: ![pro](./assets/pro.svg) a floating-point number that defines the unsharpening strength. The lesser the value, the sharper the image. This value be greater than zero. Default: `24`
+
+## Smart crop
+
+* `IMGPROXY_SMART_CROP_ADVANCED`: ![pro](./assets/pro.svg) when `true`, enables usage of the advanced smart crop method. Advanced smart crop may take more time than regular one, yet it produces better results.
+* `IMGPROXY_SMART_CROP_FACE_DETECTION`: ![pro](./assets/pro.svg) when `true`, adds an additional fast face detection step to smart crop.
 
 ## Object detection
 
@@ -413,9 +432,9 @@ Check out the [Prometheus](prometheus.md) guide to learn more.
 imgproxy can send its metrics to Datadog:
 
 * `IMGPROXY_DATADOG_ENABLE`: when `true`, enables sending metrics to Datadog. Default: false
-* `IMGPROXY_DATADOG_ENABLE_ADDITIONAL_METRICS`: when true, enables sending the additional metrics to Datadog. Default: false
+* `IMGPROXY_DATADOG_ENABLE_ADDITIONAL_METRICS`: when `true`, enables sending the additional metrics to Datadog. Default: false
 
-**⚠️Warning:** Since the additional metrics are treated by Datadog as custom, Datadog can additionally bill you for their usage. Please, check out Datadog's [Custom Metrics Billing](https://docs.datadoghq.com/account_management/billing/custom_metrics/) page for additional details.
+**⚠️ Warning:** Since the additional metrics are treated by Datadog as custom, Datadog can additionally bill you for their usage. Please, check out Datadog's [Custom Metrics Billing](https://docs.datadoghq.com/account_management/billing/custom_metrics/) page for additional details.
 
 Check out the [Datadog](datadog.md) guide to learn more.
 
@@ -481,7 +500,7 @@ imgproxy can report occurred errors to Bugsnag, Honeybadger and Sentry:
   * `pretty`: _(default)_ colored human-readable format
   * `structured`: machine-readable format
   * `json`: JSON format
-  * `gcp`: Google Cloud Logging agent compliant
+  * `gcp`: Google Cloud Logging agent compliant format
 * `IMGPROXY_LOG_LEVEL`: the log level. The following levels are supported `error`, `warn`, `info` and `debug`. Default: `info`
 
 imgproxy can send logs to syslog, but this feature is disabled by default. To enable it, set `IMGPROXY_SYSLOG_ENABLE` to `true`:
@@ -492,15 +511,19 @@ imgproxy can send logs to syslog, but this feature is disabled by default. To en
 * `IMGPROXY_SYSLOG_ADDRESS`: the address of the syslog service. Not used if `IMGPROXY_SYSLOG_NETWORK` is blank. Default: blank
 * `IMGPROXY_SYSLOG_TAG`: the specific syslog tag. Default: `imgproxy`
 
-**📝Note:** imgproxy always uses structured log format for syslog.
+**📝 Note:** imgproxy always uses structured log format for syslog.
 
 ## Memory usage tweaks
 
-**⚠️Warning:** We highly recommended reading the [Memory usage tweaks](memory_usage_tweaks.md) guide before changing these settings.
+**⚠️ Warning:** We highly recommended reading the [Memory usage tweaks](memory_usage_tweaks.md) guide before changing these settings.
 
 * `IMGPROXY_DOWNLOAD_BUFFER_SIZE`: the initial size (in bytes) of a single download buffer. When set to zero, initializes empty download buffers. Default: `0`
 * `IMGPROXY_FREE_MEMORY_INTERVAL`: the interval (in seconds) at which unused memory will be returned to the OS. Default: `10`
 * `IMGPROXY_BUFFER_POOL_CALIBRATION_THRESHOLD`: the number of buffers that should be returned to a pool before calibration. Default: `1024`
+* `IMGPROXY_MALLOC`: _(Docker only)_ malloc implementation to use. The following implementations are supported:
+  * `malloc`: standard malloc implementation
+  * `jemalloc`: https://jemalloc.net/
+  * `tcmalloc`: https://github.com/google/tcmalloc
 
 ## Miscellaneous
 

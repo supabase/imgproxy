@@ -67,6 +67,142 @@
 - Fix HTTP response status when OpenTelemetry support is enabled.
 - (docker) Fix saving of paletted PNGs with low bit-depth.
 
+## [3.17.0] - 2023-05-10
+### Add
+- Add `process_resident_memory_bytes`, `process_virtual_memory_bytes`, `go_memstats_sys_bytes`, `go_memstats_heap_idle_bytes`, `go_memstats_heap_inuse_bytes`, `go_goroutines`, `go_threads`, `buffer_default_size_bytes`, `buffer_max_size_bytes`, and `buffer_size_bytes` metrics to OpenTelemetry.
+- Add support for the `Last-Modified` response header and the `If-Modified-Since` request header (controlled by the `IMGPROXY_USE_LAST_MODIFIED` config).
+- Add `IMGPROXY_S3_ASSUME_ROLE_ARN` config.
+- Add `IMGPROXY_MALLOC` Docker-only config.
+
+### Change
+- Optimized memory buffers pooling for better performance and memory reusage.
+- Optimized watermarks application.
+
+### Fix
+- Fix crushes when `watermark_text` has an invalid value.
+
+## [3.16.1] - 2023-04-26
+### Fix
+- Fix crashes in cases where the `max_bytes` processing option was used and image saving failed.
+- Fix error when using the `extend` or `extend_aspect_ratio` processing option while setting zero width or height.
+- Fix color loss when applying a watermark with a palette on an image without a palette.
+- (pro) Fix crashes when using `IMGPROXY_SMART_CROP_FACE_DETECTION` with large `IMGPROXY_CONCURRENCY`.
+- (pro) Fix watermark scaling when neither watermark scale nor watermark size is specified.
+
+## [3.16.0] - 2023-04-18
+### Add
+- Add support for `Sec-CH-DPR` and `Sec-CH-Width` client hints.
+- Add support for Base64-encoded `filename` processing option values.
+- Add `IMGPROXY_REQUEST_HEADERS_PASSTHROUGH` and `IMGPROXY_RESPONSE_HEADERS_PASSTHROUGH` configs.
+
+### Change
+- Improved object-oriented crop.
+
+### Fix
+- Fix detection of dead HTTP/2 connections.
+- Fix the way the `dpr` processing option affects offsets and paddings.
+
+### Remove
+- Remove suport for `Viewport-Width` client hint.
+- Don't set `Content-DPR` header (deprecated in the specification).
+
+## [3.15.0] - 2023-04-10
+### Add
+- Add the `IMGPROXY_ALLOW_LOOPBACK_SOURCE_ADDRESSES`, `IMGPROXY_ALLOW_LINK_LOCAL_SOURCE_ADDRESSES`, and `IMGPROXY_ALLOW_PRIVATE_SOURCE_ADDRESSES` configs.
+
+### Change
+- Connecting to loopback, link-local multicast, and link-local unicast IP addresses when requesting source images is prohibited by default.
+- Tuned source image downloading flow.
+- Disable extension checking if the `raw` processing option is used.
+
+### Fix
+- (pro) Fix face detection during advanced smart crop in some cases.
+
+## [3.14.0] - 2023-03-07
+## Add
+- Add [extend_aspect_ratio](https://docs.imgproxy.net/latest/generating_the_url?id=extend-aspect-ratio) processing option.
+- Add the `IMGPROXY_ALLOW_SECURITY_OPTIONS` config + `max_src_resolution`, `max_src_file_size`, `max_animation_frames`, and `max_animation_frame_resolution` processing options.
+- (pro) Add [advanced smart crop](https://docs.imgproxy.net/latest/configuration?id=smart-crop).
+
+### Change
+- Make the `expires` processing option set `Expires` and `Cache-Control` headers.
+- Sanitize `use` tags in SVGs.
+
+### Fix
+- Fix handling some ICC profiles.
+
+## [3.13.2] - 2023-02-15
+### Change
+- Remove color-related EXIF data when stripping ICC profile.
+- (pro) Optimize saving to MP4.
+
+### Fix
+- (pro) Fix saving with autoquality in some cases.
+- (pro) Fix saving large images to MP4.
+
+## [3.13.1] - 2023-01-16
+### Fix
+- Fix applying watermarks with replication.
+
+## [3.13.0] - 2023-01-11
+### Change
+- Add support for Managed Identity or Service Principal credentials to Azure Blob Storage integration.
+- Optimize memory usage in some scenarios.
+- Better SVG sanitization.
+- (pro) Allow usage of floating-point numbers in the `IMGPROXY_VIDEO_THUMBNAIL_SECOND` config and the `video_thumbnail_second` processing option.
+
+### Fix
+- Fix crashes in some cases when using OpenTelemetry in Amazon ECS.
+- (pro) Fix saving of GIF with too small frame delay to MP4
+
+## [3.12.0] - 2022-12-11
+### Add
+- Add `IMGPROXY_MAX_ANIMATION_FRAME_RESOLUTION` config.
+- Add [Amazon CloudWatch](https://docs.imgproxy.net/latest/cloud_watch) support.
+- (pro) Add [`best` resultig image format](https://docs.imgproxy.net/latest/best_format).
+- (pro) Add `IMGPROXY_WEBP_COMPRESSION` config and [webp_options](https://docs.imgproxy.net/latest/generating_the_url?id=webp-options) processing option.
+
+### Change
+- Change `IMGPROXY_FORMAT_QUALITY` default value to `avif=65`.
+- Change `IMGPROXY_AVIF_SPEED` default value to `8`.
+- Change `IMGPROXY_PREFERRED_FORMATS` default value to `jpeg,png,gif`.
+- Set `Cache-Control: no-cache` header to the health check responses.
+- Allow replacing line breaks with `\n` in `IMGPROXY_OPEN_TELEMETRY_SERVER_CERT`, `IMGPROXY_OPEN_TELEMETRY_CLIENT_CERT`, and`IMGPROXY_OPEN_TELEMETRY_CLIENT_KEY`.
+
+### Fix
+- Fix 3GP video format detection.
+
+## [3.11.0] - 2022-11-17
+### Add
+- Add `IMGPROXY_OPEN_TELEMETRY_GRPC_INSECURE` config.
+- Add `IMGPROXY_OPEN_TELEMETRY_TRACE_ID_GENERATOR` config.
+- (pro) Add XMP data to the `/info` response.
+
+### Change
+- Better XMP data stripping.
+- Use parent-based OpenTelemetry sampler by default.
+- Use fixed TraceIdRatioBased sampler with OpenTelemetry.
+
+## [3.10.0] - 2022-11-04
+### Add
+- Add `IMGPROXY_CLIENT_KEEP_ALIVE_TIMEOUT` config.
+- (pro) Add [disable_animation](https://docs.imgproxy.net/latest/generating_the_url?id=disable-animation) processing option.
+- (pro) Add [gradient](https://docs.imgproxy.net/latest/generating_the_url?id=gradient) processing option.
+
+### Fix
+- Fix false-positive SVG detections.
+- Fix possible infinite loop during SVG sanitization.
+- (pro) Fix saving of GIF with variable frame delay to MP4.
+- (pro) Fix the size of video thumbnails if the video has a defined sample aspect ratio.
+
+## [3.9.0] - 2022-10-19
+### Add
+- Add `IMGPROXY_SVG_FIX_UNSUPPORTED` config.
+
+### Fix
+- Fix HTTP response status when OpenTelemetry support is enabled.
+- (docker) Fix saving of paletted PNGs with low bit-depth.
+
 ## [3.8.0] - 2022-10-06
 ### Add
 - Add [raw](https://docs.imgproxy.net/latest/generating_the_url?id=raw) processing option.

@@ -434,6 +434,23 @@ func (img *Image) GetIntSliceDefault(name string, def []int) ([]int, error) {
 	return img.GetIntSlice(name)
 }
 
+func (img *Image) GetDouble(name string) (float64, error) {
+	var d C.double
+
+	if C.vips_image_get_double(img.VipsImage, cachedCString(name), &d) != 0 {
+		return 0, Error()
+	}
+	return float64(d), nil
+}
+
+func (img *Image) GetDoubleDefault(name string, def float64) (float64, error) {
+	if C.vips_image_get_typeof(img.VipsImage, cachedCString(name)) == 0 {
+		return def, nil
+	}
+
+	return img.GetDouble(name)
+}
+
 func (img *Image) GetBlob(name string) ([]byte, error) {
 	var (
 		tmp  unsafe.Pointer
@@ -458,9 +475,17 @@ func (img *Image) SetIntSlice(name string, value []int) {
 	C.vips_image_set_array_int_go(img.VipsImage, cachedCString(name), &in[0], C.int(len(value)))
 }
 
+func (img *Image) SetDouble(name string, value float64) {
+	C.vips_image_set_double(img.VipsImage, cachedCString(name), C.double(value))
+}
+
 func (img *Image) SetBlob(name string, value []byte) {
 	defer runtime.KeepAlive(value)
 	C.vips_image_set_blob_copy(img.VipsImage, cachedCString(name), unsafe.Pointer(&value[0]), C.size_t(len(value)))
+}
+
+func (img *Image) RemoveHeader(name string) {
+	C.vips_image_remove(img.VipsImage, cachedCString(name))
 }
 
 func (img *Image) CastUchar() error {
@@ -600,8 +625,11 @@ func (img *Image) ApplyFilters(blurSigma, sharpSigma float32, pixelatePixels int
 	return nil
 }
 
-func (img *Image) IsCMYK() bool {
-	return C.vips_image_guess_interpretation(img.VipsImage) == C.VIPS_INTERPRETATION_CMYK
+func (img *Image) IsRGB() bool {
+	format := C.vips_image_guess_interpretation(img.VipsImage)
+	return format == C.VIPS_INTERPRETATION_sRGB ||
+		format == C.VIPS_INTERPRETATION_scRGB ||
+		format == C.VIPS_INTERPRETATION_RGB16
 }
 
 func (img *Image) ImportColourProfile() error {
@@ -743,10 +771,10 @@ func (img *Image) Embed(width, height int, offX, offY int) error {
 	return nil
 }
 
-func (img *Image) ApplyWatermark(wm *Image, opacity float64) error {
+func (img *Image) ApplyWatermark(wm *Image, left, top int, opacity float64) error {
 	var tmp *C.VipsImage
 
-	if C.vips_apply_watermark(img.VipsImage, wm.VipsImage, &tmp, C.double(opacity)) != 0 {
+	if C.vips_apply_watermark(img.VipsImage, wm.VipsImage, &tmp, C.int(left), C.int(top), C.double(opacity)) != 0 {
 		return Error()
 	}
 	C.swap_and_clear(&img.VipsImage, tmp)
