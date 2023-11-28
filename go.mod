@@ -48,7 +48,7 @@ require (
 	golang.org/x/net v0.10.0
 	golang.org/x/sys v0.8.0
 	google.golang.org/api v0.122.0
-	google.golang.org/grpc v1.55.0
+	google.golang.org/grpc v1.56.3
 	gopkg.in/DataDog/dd-trace-go.v1 v1.50.1
 )
 
