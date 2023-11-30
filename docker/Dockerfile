@@ -1,4 +1,4 @@
-ARG BASE_IMAGE_VERSION="v3.3.5"
+ARG BASE_IMAGE_VERSION="v3.8.2"
 
 FROM darthsim/imgproxy-base:${BASE_IMAGE_VERSION}
 
@@ -11,7 +11,7 @@ RUN docker/build.sh
 # ==================================================================================================
 # Final image
 
-FROM debian:bullseye-slim
+FROM debian:stable-slim
 LABEL maintainer="Sergey Alexandrovich <darthsim@gmail.com>"
 
 RUN apt-get update \
@@ -19,10 +19,9 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends \
     bash \
     ca-certificates \
-    libsm6 \
+    libstdc++6 \
     liblzma5 \
     libzstd1 \
-    libpcre3 \
     fontconfig-config \
     media-types \
     libjemalloc2 \
