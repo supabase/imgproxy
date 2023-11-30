@@ -135,6 +135,10 @@ func (it Type) ContentDispositionFromURL(imageURL string, returnAttachment bool)
 	return it.ContentDisposition(strings.TrimSuffix(filename, filepath.Ext(filename)), returnAttachment)
 }
 
+func (it Type) IsVector() bool {
+	return it == SVG
+}
+
 func (it Type) SupportsAlpha() bool {
 	return it != JPEG && it != BMP
 }
@@ -147,7 +151,16 @@ func (it Type) SupportsColourProfile() bool {
 	return it == JPEG ||
 		it == PNG ||
 		it == WEBP ||
+		it == HEIC ||
 		it == AVIF
+}
+
+func (it Type) SupportsQuality() bool {
+	return it == JPEG ||
+		it == WEBP ||
+		it == HEIC ||
+		it == AVIF ||
+		it == TIFF
 }
 
 func (it Type) SupportsThumbnail() bool {

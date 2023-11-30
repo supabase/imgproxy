@@ -12,6 +12,11 @@ import (
 	"github.com/imgproxy/imgproxy/v3/imagetype"
 )
 
+type URLReplacement struct {
+	Regexp      *regexp.Regexp
+	Replacement string
+}
+
 func Int(i *int, name string) {
 	if env, err := strconv.Atoi(os.Getenv(name)); err == nil {
 		*i = env
@@ -99,6 +104,25 @@ func StringMap(m *map[string]string, name string) error {
 func Bool(b *bool, name string) {
 	if env, err := strconv.ParseBool(os.Getenv(name)); err == nil {
 		*b = env
+	}
+}
+
+func URLPath(s *string, name string) {
+	if env := os.Getenv(name); len(env) > 0 {
+		if i := strings.IndexByte(env, '?'); i >= 0 {
+			env = env[:i]
+		}
+		if i := strings.IndexByte(env, '#'); i >= 0 {
+			env = env[:i]
+		}
+		if len(env) > 0 && env[len(env)-1] == '/' {
+			env = env[:len(env)-1]
+		}
+		if len(env) > 0 && env[0] != '/' {
+			env = "/" + env
+		}
+
+		*s = env
 	}
 }
 
@@ -221,6 +245,29 @@ func Patterns(s *[]*regexp.Regexp, name string) {
 	}
 }
 
+func Replacements(s *[]URLReplacement, name string) error {
+	if env := os.Getenv(name); len(env) > 0 {
+		ss := []URLReplacement(nil)
+
+		keyvalues := strings.Split(env, ";")
+
+		for _, keyvalue := range keyvalues {
+			parts := strings.SplitN(keyvalue, "=", 2)
+			if len(parts) != 2 {
+				return fmt.Errorf("Invalid key/value: %s", keyvalue)
+			}
+			ss = append(ss, URLReplacement{
+				Regexp:      RegexpFromPattern(parts[0]),
+				Replacement: parts[1],
+			})
+		}
+
+		*s = ss
+	}
+
+	return nil
+}
+
 func RegexpFromPattern(pattern string) *regexp.Regexp {
 	var result strings.Builder
 	// Perform prefix matching
@@ -228,7 +275,7 @@ func RegexpFromPattern(pattern string) *regexp.Regexp {
 	for i, part := range strings.Split(pattern, "*") {
 		// Add a regexp match all without slashes for each wildcard character
 		if i > 0 {
-			result.WriteString("[^/]*")
+			result.WriteString("([^/]*)")
 		}
 
 		// Quote other parts of the pattern

@@ -85,15 +85,6 @@ func ValidatePreferredFormats() error {
 	return nil
 }
 
-func canFitToBytes(imgtype imagetype.Type) bool {
-	switch imgtype {
-	case imagetype.JPEG, imagetype.WEBP, imagetype.AVIF, imagetype.TIFF:
-		return true
-	default:
-		return false
-	}
-}
-
 func getImageSize(img *vips.Image) (int, int) {
 	width, height, _, _ := extractMeta(img, 0, true)
 
@@ -154,6 +145,12 @@ func transformAnimated(ctx context.Context, img *vips.Image, po *options.Process
 			}
 		}
 	}()
+
+	// Splitting and joining back large WebPs may cause segfault.
+	// Caching page region cures this
+	if err = img.LineCache(frameHeight); err != nil {
+		return err
+	}
 
 	for i := 0; i < framesCount; i++ {
 		frame := new(vips.Image)
@@ -333,7 +330,7 @@ func ProcessImage(ctx context.Context, imgdata *imagedata.ImageData, po *options
 		err     error
 	)
 
-	if po.MaxBytes > 0 && canFitToBytes(po.Format) {
+	if po.MaxBytes > 0 && po.Format.SupportsQuality() {
 		outData, err = saveImageToFitBytes(ctx, po, img)
 	} else {
 		outData, err = img.Save(po.Format, po.GetQuality())

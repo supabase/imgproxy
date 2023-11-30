@@ -37,10 +37,10 @@ var (
 
 func initProcessingHandler() {
 	if config.RequestsQueueSize > 0 {
-		queueSem = semaphore.New(config.RequestsQueueSize + config.Concurrency)
+		queueSem = semaphore.New(config.RequestsQueueSize + config.Workers)
 	}
 
-	processingSem = semaphore.New(config.Concurrency)
+	processingSem = semaphore.New(config.Workers)
 
 	vary := make([]string, 0)
 
@@ -57,15 +57,20 @@ func initProcessingHandler() {
 
 func setCacheControl(rw http.ResponseWriter, force *time.Time, originHeaders map[string]string) {
 	var cacheControl, expires string
-	var ttl int
 
-	if force != nil {
+	ttl := -1
+
+	if _, ok := originHeaders["Fallback-Image"]; ok && config.FallbackImageTTL > 0 {
+		ttl = config.FallbackImageTTL
+	}
+
+	if force != nil && (ttl < 0 || force.Before(time.Now().Add(time.Duration(ttl)*time.Second))) {
 		rw.Header().Set("Cache-Control", fmt.Sprintf("max-age=%d, public", int(time.Until(*force).Seconds())))
 		rw.Header().Set("Expires", force.Format(http.TimeFormat))
 		return
 	}
 
-	if config.CacheControlPassthrough && originHeaders != nil {
+	if config.CacheControlPassthrough && ttl < 0 && originHeaders != nil {
 		if val, ok := originHeaders["Cache-Control"]; ok && len(val) > 0 {
 			cacheControl = val
 		}
@@ -75,9 +80,8 @@ func setCacheControl(rw http.ResponseWriter, force *time.Time, originHeaders map
 	}
 
 	if len(cacheControl) == 0 && len(expires) == 0 {
-		ttl = config.TTL
-		if _, ok := originHeaders["Fallback-Image"]; ok && config.FallbackImageTTL > 0 {
-			ttl = config.FallbackImageTTL
+		if ttl < 0 {
+			ttl = config.TTL
 		}
 		cacheControl = fmt.Sprintf("max-age=%d, public", ttl)
 		expires = time.Now().Add(time.Second * time.Duration(ttl)).Format(http.TimeFormat)
@@ -167,7 +171,7 @@ func respondWithNotModified(reqID string, r *http.Request, rw http.ResponseWrite
 	)
 }
 
-func sendErrAndPanic(ctx context.Context, errType string, err error) {
+func sendErr(ctx context.Context, errType string, err error) {
 	send := true
 
 	if ierr, ok := err.(*ierrors.Error); ok {
@@ -183,7 +187,10 @@ func sendErrAndPanic(ctx context.Context, errType string, err error) {
 	if send {
 		metrics.SendError(ctx, errType, err)
 	}
+}
 
+func sendErrAndPanic(ctx context.Context, errType string, err error) {
+	sendErr(ctx, errType, err)
 	panic(err)
 }
 
@@ -201,8 +208,8 @@ func handleProcessing(reqID string, rw http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	if queueSem != nil {
-		token, aquired := queueSem.TryAquire()
-		if !aquired {
+		token, acquired := queueSem.TryAcquire()
+		if !acquired {
 			panic(ierrors.New(429, "Too many requests", "Too many requests"))
 		}
 		defer token.Release()
@@ -275,17 +282,17 @@ func handleProcessing(reqID string, rw http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// The heavy part start here, so we need to restrict concurrency
+	// The heavy part start here, so we need to restrict worker number
 	var processingSemToken *semaphore.Token
 	func() {
 		defer metrics.StartQueueSegment(ctx)()
 
-		var aquired bool
-		processingSemToken, aquired = processingSem.Aquire(ctx)
-		if !aquired {
+		var acquired bool
+		processingSemToken, acquired = processingSem.Acquire(ctx)
+		if !acquired {
 			// We don't actually need to check timeout here,
 			// but it's an easy way to check if this is an actual timeout
-			// or the request was cancelled
+			// or the request was canceled
 			checkErr(ctx, "queue", router.CheckTimeout(ctx))
 		}
 	}()
@@ -329,7 +336,7 @@ func handleProcessing(reqID string, rw http.ResponseWriter, r *http.Request) {
 			errorreport.Report(err, r)
 		}
 
-		metrics.SendError(ctx, "download", err)
+		sendErr(ctx, "download", err)
 
 		if imagedata.FallbackImage == nil {
 			panic(err)
@@ -362,7 +369,7 @@ func handleProcessing(reqID string, rw http.ResponseWriter, r *http.Request) {
 		// Don't process SVG
 		if originData.Type == imagetype.SVG {
 			if config.SanitizeSvg {
-				sanitized, svgErr := svg.Satitize(originData)
+				sanitized, svgErr := svg.Sanitize(originData)
 				checkErr(ctx, "svg_processing", svgErr)
 
 				// Since we'll replace origin data, it's better to close it to return

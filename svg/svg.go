@@ -15,19 +15,32 @@ import (
 
 var feDropShadowName = []byte("feDropShadow")
 
-const feDropShadowTemplate = `
-	<feMerge result="dsin-%[1]s"><feMergeNode %[3]s /></feMerge>
-	<feGaussianBlur %[4]s />
-	<feOffset %[5]s result="dsof-%[2]s" />
-	<feFlood %[6]s />
-	<feComposite in2="dsof-%[2]s" operator="in" />
-	<feMerge %[7]s>
-		<feMergeNode />
-		<feMergeNode in="dsin-%[1]s" />
-	</feMerge>
-`
+var feDropShadowTemplate = strings.TrimSpace(`
+  <feMerge result="dsin-%[1]s"><feMergeNode %[3]s /></feMerge>
+  <feGaussianBlur %[4]s />
+  <feOffset %[5]s result="dsof-%[2]s" />
+  <feFlood %[6]s />
+  <feComposite in2="dsof-%[2]s" operator="in" />
+  <feMerge %[7]s>
+    <feMergeNode />
+    <feMergeNode in="dsin-%[1]s" />
+  </feMerge>
+`)
 
-func Satitize(data *imagedata.ImageData) (*imagedata.ImageData, error) {
+func cloneHeaders(src map[string]string) map[string]string {
+	if src == nil {
+		return nil
+	}
+
+	dst := make(map[string]string, len(src))
+	for k, v := range src {
+		dst[k] = v
+	}
+
+	return dst
+}
+
+func Sanitize(data *imagedata.ImageData) (*imagedata.ImageData, error) {
 	r := bytes.NewReader(data.Data)
 	l := xml.NewLexer(parse.NewInput(r))
 
@@ -62,8 +75,9 @@ func Satitize(data *imagedata.ImageData) (*imagedata.ImageData, error) {
 			}
 
 			newData := imagedata.ImageData{
-				Data: buf.Bytes(),
-				Type: data.Type,
+				Data:    buf.Bytes(),
+				Type:    data.Type,
+				Headers: cloneHeaders(data.Headers),
 			}
 			newData.SetCancel(cancel)
 
@@ -193,8 +207,9 @@ func FixUnsupported(data *imagedata.ImageData) (*imagedata.ImageData, bool, erro
 			}
 
 			newData := imagedata.ImageData{
-				Data: buf.Bytes(),
-				Type: data.Type,
+				Data:    buf.Bytes(),
+				Type:    data.Type,
+				Headers: cloneHeaders(data.Headers),
 			}
 			newData.SetCancel(cancel)
 

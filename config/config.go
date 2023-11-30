@@ -16,6 +16,8 @@ import (
 	"github.com/imgproxy/imgproxy/v3/version"
 )
 
+type URLReplacement = configurators.URLReplacement
+
 var (
 	Network                string
 	Bind                   string
@@ -24,7 +26,7 @@ var (
 	KeepAliveTimeout       int
 	ClientKeepAliveTimeout int
 	DownloadTimeout        int
-	Concurrency            int
+	Workers                int
 	RequestsQueueSize      int
 	MaxClients             int
 
@@ -97,10 +99,12 @@ var (
 
 	LocalFileSystemRoot string
 
-	S3Enabled       bool
-	S3Region        string
-	S3Endpoint      string
-	S3AssumeRoleArn string
+	S3Enabled                 bool
+	S3Region                  string
+	S3Endpoint                string
+	S3AssumeRoleArn           string
+	S3MultiRegion             bool
+	S3DecryptionClientEnabled bool
 
 	GCSEnabled  bool
 	GCSKey      string
@@ -126,7 +130,8 @@ var (
 
 	LastModifiedEnabled bool
 
-	BaseURL string
+	BaseURL         string
+	URLReplacements []URLReplacement
 
 	Presets     []string
 	OnlyPresets bool
@@ -215,7 +220,7 @@ func Reset() {
 	KeepAliveTimeout = 10
 	ClientKeepAliveTimeout = 90
 	DownloadTimeout = 5
-	Concurrency = runtime.GOMAXPROCS(0) * 2
+	Workers = runtime.GOMAXPROCS(0) * 2
 	RequestsQueueSize = 0
 	MaxClients = 2048
 
@@ -239,7 +244,7 @@ func Reset() {
 	PngInterlaced = false
 	PngQuantize = false
 	PngQuantizationColors = 256
-	AvifSpeed = 8
+	AvifSpeed = 9
 	Quality = 80
 	FormatQuality = map[imagetype.Type]int{imagetype.AVIF: 65}
 	StripMetadata = true
@@ -295,6 +300,8 @@ func Reset() {
 	S3Region = ""
 	S3Endpoint = ""
 	S3AssumeRoleArn = ""
+	S3MultiRegion = false
+	S3DecryptionClientEnabled = false
 	GCSEnabled = false
 	GCSKey = ""
 	ABSEnabled = false
@@ -317,6 +324,7 @@ func Reset() {
 	LastModifiedEnabled = false
 
 	BaseURL = ""
+	URLReplacements = make([]URLReplacement, 0)
 
 	Presets = make([]string, 0)
 	OnlyPresets = false
@@ -394,7 +402,8 @@ func Configure() error {
 	configurators.Int(&KeepAliveTimeout, "IMGPROXY_KEEP_ALIVE_TIMEOUT")
 	configurators.Int(&ClientKeepAliveTimeout, "IMGPROXY_CLIENT_KEEP_ALIVE_TIMEOUT")
 	configurators.Int(&DownloadTimeout, "IMGPROXY_DOWNLOAD_TIMEOUT")
-	configurators.Int(&Concurrency, "IMGPROXY_CONCURRENCY")
+	configurators.Int(&Workers, "IMGPROXY_CONCURRENCY")
+	configurators.Int(&Workers, "IMGPROXY_WORKERS")
 	configurators.Int(&RequestsQueueSize, "IMGPROXY_REQUESTS_QUEUE_SIZE")
 	configurators.Int(&MaxClients, "IMGPROXY_MAX_CLIENTS")
 
@@ -404,7 +413,7 @@ func Configure() error {
 
 	configurators.Bool(&SoReuseport, "IMGPROXY_SO_REUSEPORT")
 
-	configurators.String(&PathPrefix, "IMGPROXY_PATH_PREFIX")
+	configurators.URLPath(&PathPrefix, "IMGPROXY_PATH_PREFIX")
 
 	configurators.MegaInt(&MaxSrcResolution, "IMGPROXY_MAX_SRC_RESOLUTION")
 	configurators.Int(&MaxSrcFileSize, "IMGPROXY_MAX_SRC_FILE_SIZE")
@@ -447,7 +456,7 @@ func Configure() error {
 	configurators.Bool(&EnforceAvif, "IMGPROXY_ENFORCE_AVIF")
 	configurators.Bool(&EnableClientHints, "IMGPROXY_ENABLE_CLIENT_HINTS")
 
-	configurators.String(&HealthCheckPath, "IMGPROXY_HEALTH_CHECK_PATH")
+	configurators.URLPath(&HealthCheckPath, "IMGPROXY_HEALTH_CHECK_PATH")
 
 	if err := configurators.ImageTypes(&PreferredFormats, "IMGPROXY_PREFERRED_FORMATS"); err != nil {
 		return err
@@ -493,6 +502,8 @@ func Configure() error {
 	configurators.String(&S3Region, "IMGPROXY_S3_REGION")
 	configurators.String(&S3Endpoint, "IMGPROXY_S3_ENDPOINT")
 	configurators.String(&S3AssumeRoleArn, "IMGPROXY_S3_ASSUME_ROLE_ARN")
+	configurators.Bool(&S3MultiRegion, "IMGPROXY_S3_MULTI_REGION")
+	configurators.Bool(&S3DecryptionClientEnabled, "IMGPROXY_S3_USE_DECRYPTION_CLIENT")
 
 	configurators.Bool(&GCSEnabled, "IMGPROXY_USE_GCS")
 	configurators.String(&GCSKey, "IMGPROXY_GCS_KEY")
@@ -518,6 +529,9 @@ func Configure() error {
 	configurators.Bool(&LastModifiedEnabled, "IMGPROXY_USE_LAST_MODIFIED")
 
 	configurators.String(&BaseURL, "IMGPROXY_BASE_URL")
+	if err := configurators.Replacements(&URLReplacements, "IMGPROXY_URL_REPLACEMENTS"); err != nil {
+		return err
+	}
 
 	configurators.StringSlice(&Presets, "IMGPROXY_PRESETS")
 	if err := configurators.StringSliceFile(&Presets, presetsPath); err != nil {
@@ -615,8 +629,8 @@ func Configure() error {
 		return fmt.Errorf("Download timeout should be greater than 0, now - %d\n", DownloadTimeout)
 	}
 
-	if Concurrency <= 0 {
-		return fmt.Errorf("Concurrency should be greater than 0, now - %d\n", Concurrency)
+	if Workers <= 0 {
+		return fmt.Errorf("Workers number should be greater than 0, now - %d\n", Workers)
 	}
 
 	if RequestsQueueSize < 0 {
@@ -624,7 +638,7 @@ func Configure() error {
 	}
 
 	if MaxClients < 0 {
-		return fmt.Errorf("Concurrency should be greater than or equal 0, now - %d\n", MaxClients)
+		return fmt.Errorf("Max clients number should be greater than or equal 0, now - %d\n", MaxClients)
 	}
 
 	if TTL <= 0 {
@@ -651,8 +665,8 @@ func Configure() error {
 
 	if AvifSpeed < 0 {
 		return fmt.Errorf("Avif speed should be greater than 0, now - %d\n", AvifSpeed)
-	} else if AvifSpeed > 8 {
-		return fmt.Errorf("Avif speed can't be greater than 8, now - %d\n", AvifSpeed)
+	} else if AvifSpeed > 9 {
+		return fmt.Errorf("Avif speed can't be greater than 9, now - %d\n", AvifSpeed)
 	}
 
 	if Quality <= 0 {
